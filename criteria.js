@@ -149,6 +149,9 @@ function matchItem(model, key, criterion, parentKey) {
 		else if (key === 'lessThanOrEqual' || key === '<=')  {
 			return matchLiteral(model,parentKey,criterion, compare['<=']);
 		}
+		else if (key === 'between')  {
+			return matchLiteral(model,parentKey,criterion, compare['between']);
+		}
 		else if (key === 'startsWith') return matchLiteral(model,parentKey,criterion, checkStartsWith);
 		else if (key === 'endsWith') return matchLiteral(model,parentKey,criterion, checkEndsWith);
 		else if (key === 'contains') return matchLiteral(model,parentKey,criterion, checkContains);
@@ -211,7 +214,13 @@ var compare = {
 	'<=': function (a,b) {
 		var x = normalizeComparison(a,b);
 		return x[0] <= x[1];
-	}
+	},
+
+  'between': function (a,b) {
+    var x = normalizeComparison(a, b[0]);
+    var y = normalizeComparison(a, b[1]);
+    return x[0] > x[1] && y[0] < y[1];
+  }
 };
 
 // Prepare two values for comparison
@@ -226,10 +235,11 @@ function normalizeComparison(a,b) {
 // Return whether this criteria is valid as an object inside of an attribute
 function validSubAttrCriteria(c) {
 	return _.isObject(c) && (
-		c.not || c.greaterThan || c.lessThan || 
+		c.not || c.greaterThan || c.lessThan ||
 		c.greaterThanOrEqual || c.lessThanOrEqual ||
 		c['<'] || c['<='] || c['!'] || c['>'] || c['>='] ||
-		c.startsWith || c.endsWith || c.contains || c.like
+		c.startsWith || c.endsWith || c.contains || c.like ||
+    c.between
 	);
 }
 
@@ -241,8 +251,9 @@ function isNumbery (value) {
 // matchFn => the function that will be run to check for a match between the two literals
 function matchLiteral(model, key, criterion, matchFn) {
 	// If the criterion are both parsable finite numbers, cast them
-	if(isNumbery(criterion) && isNumbery(model[key])) {
-		criterion = +criterion;
+	if(_.all(criterion, isNumbery) && isNumbery(model[key])) {
+    criterion = criterion instanceof Array ? _.map(criterion, function(c) { return +c }) : +criterion;
+
 		model[key] = +model[key];
 	}
 
